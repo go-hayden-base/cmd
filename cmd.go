@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"errors"
 	"os"
 	"os/exec"
@@ -8,18 +9,52 @@ import (
 	"regexp"
 	"strings"
 
+	"io"
+
 	"github.com/go-hayden-base/fs"
 	"github.com/go-hayden-base/str"
 )
 
-func Exec(cmd string) ([]byte, error) {
+func Cmd(cmd string) *exec.Cmd {
 	cmd = regexp.MustCompile(`\s{2,}`).ReplaceAllString(cmd, " ")
 	args := strings.Split(cmd, " ")
 	mainCommond := args[0]
 	if len(args) > 1 {
-		return exec.Command(mainCommond, args[1:]...).Output()
+		return exec.Command(mainCommond, args[1:]...)
 	}
-	return exec.Command(mainCommond).Output()
+	return exec.Command(mainCommond)
+}
+
+func Exec(cmd string) ([]byte, error) {
+	return Cmd(cmd).Output()
+}
+
+func ExecOutputPerLine(cmd string, f func(line string)) error {
+	aCmd := Cmd(cmd)
+	if f == nil {
+		_, e := aCmd.Output()
+		return e
+	}
+
+	stdout, e := aCmd.StdoutPipe()
+	if e != nil {
+		return e
+	}
+
+	aCmd.Start()
+	aReader := bufio.NewReader(stdout)
+	for {
+		line, e := aReader.ReadString('\n')
+		if e != nil {
+			if e != io.EOF {
+				f(e.Error())
+			}
+			break
+		}
+		f(line)
+	}
+	aCmd.Wait()
+	return nil
 }
 
 func ExecThenOutput(cmd string, dest string) error {
@@ -34,36 +69,6 @@ func ExecThenOutput(cmd string, dest string) error {
 		}
 	}
 	return nil
-}
-
-type enumerableCmd struct {
-	Cmd        string
-	err        error
-	filterReg  string
-	filterFunc func(line string, stop *bool) bool
-}
-
-func (s *enumerableCmd) Filter(reg string) str.IEnumerableString {
-	s.filterReg = reg
-	return s
-}
-
-func (s *enumerableCmd) FilterFunc(f func(line string, stop *bool) bool) str.IEnumerableString {
-	s.filterFunc = f
-	return s
-}
-
-func (s *enumerableCmd) Enumerate(f func(line string, err error)) {
-	if f == nil {
-		return
-	}
-	if b, e := Exec(s.Cmd); e != nil {
-		f("", e)
-		return
-	} else {
-		be := str.NewEnumerableBytes(b)
-		be.Filter(s.filterReg).FilterFunc(s.filterFunc).Enumerate(f)
-	}
 }
 
 func ExecForEnumerable(cmd string) str.IEnumerableString {
