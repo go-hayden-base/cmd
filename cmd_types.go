@@ -1,33 +1,32 @@
 package cmd
 
-import "github.com/go-hayden-base/str"
+import fdt "github.com/go-hayden-base/foundation"
 
-type enumerableCmd struct {
+type tEnumerableCmd struct {
 	Cmd        string
-	err        error
-	filterReg  string
-	filterFunc func(line string, stop *bool) bool
+	FilterFunc func(item interface{}) bool
 }
 
-func (s *enumerableCmd) Filter(reg string) str.IEnumerableString {
-	s.filterReg = reg
+func (s *tEnumerableCmd) Filter(f func(item interface{}) bool) fdt.IEnumerable {
+	s.FilterFunc = f
 	return s
 }
 
-func (s *enumerableCmd) FilterFunc(f func(line string, stop *bool) bool) str.IEnumerableString {
-	s.filterFunc = f
-	return s
-}
-
-func (s *enumerableCmd) Enumerate(f func(line string, err error)) {
+func (s *tEnumerableCmd) Enumerate(f func(itme interface{}, err error, stop *bool)) {
 	if f == nil {
 		return
 	}
-	if b, e := Exec(s.Cmd); e != nil {
-		f("", e)
+	stop := false
+	b, err := Exec(s.Cmd)
+	if err != nil {
+		f("", err, &stop)
 		return
-	} else {
-		be := str.NewEnumerableBytes(b)
-		be.Filter(s.filterReg).FilterFunc(s.filterFunc).Enumerate(f)
 	}
+	eByte := fdt.NewEnumerableBytes(b)
+	eByte.Filter(s.FilterFunc).Enumerate(f)
+}
+
+func NewEnumerableCmd(cmd string) fdt.IEnumerable {
+	aEnumerableCmd := tEnumerableCmd{Cmd: cmd}
+	return &aEnumerableCmd
 }

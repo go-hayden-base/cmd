@@ -3,16 +3,14 @@ package cmd
 import (
 	"bufio"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path"
 	"regexp"
 	"strings"
 
-	"io"
-
 	"github.com/go-hayden-base/fs"
-	"github.com/go-hayden-base/str"
 )
 
 func Cmd(cmd string) *exec.Cmd {
@@ -29,7 +27,7 @@ func Exec(cmd string) ([]byte, error) {
 	return Cmd(cmd).Output()
 }
 
-func ExecOutputPerLine(cmd string, f func(line string)) error {
+func ExecOutputByLine(cmd string, f func(line string)) error {
 	aCmd := Cmd(cmd)
 	if f == nil {
 		_, e := aCmd.Output()
@@ -57,7 +55,7 @@ func ExecOutputPerLine(cmd string, f func(line string)) error {
 	return nil
 }
 
-func ExecThenOutput(cmd string, dest string) error {
+func ExecOutputFile(cmd string, dest string) error {
 	if dest == "" || !path.IsAbs(dest) {
 		return errors.New("输出路径错误!")
 	}
@@ -69,10 +67,4 @@ func ExecThenOutput(cmd string, dest string) error {
 		}
 	}
 	return nil
-}
-
-func ExecForEnumerable(cmd string) str.IEnumerableString {
-	ec := new(enumerableCmd)
-	ec.Cmd = cmd
-	return ec
 }
