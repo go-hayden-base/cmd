@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"regexp"
+	"strings"
+
 	"github.com/go-hayden-base/foundation"
 )
 
@@ -108,7 +111,7 @@ func (s *tCmdQueue) Output() ([]string, error) {
 		}
 		b, err := aCmd.Output()
 		if err != nil {
-			return nil, errors.New("Exec '" + cmdStr + "' failed: " + err.Error())
+			return nil, funcFmtError(cmdStr, err)
 		}
 		if idx < l-1 && !aCmdTask.fall {
 			output = nil
@@ -135,4 +138,28 @@ func (s *tCmdQueue) Output() ([]string, error) {
 		}
 	}
 	return output, nil
+}
+
+func funcFmtError(cmdStr string, err error) error {
+	return errors.New("Exec '" + cmdStr + "' failed: " + err.Error())
+}
+
+func IsCmdError(cmdStr string, err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	idx := strings.Index(s, "' failed: ")
+	if idx < 0 {
+		return false
+	}
+	s = s[:idx]
+	if !strings.HasPrefix(s, "Exec '") {
+		return false
+	}
+	s = s[6:]
+	reg := regexp.MustCompile(`\s{2,}`)
+	s = reg.ReplaceAllString(s, " ")
+	cmdStr = reg.ReplaceAllString(cmdStr, " ")
+	return s == cmdStr || strings.HasPrefix(s, cmdStr)
 }
